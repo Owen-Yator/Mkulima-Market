@@ -135,12 +135,3 @@ fun SignupScreen(
 }
 
 // ---------------- HOME ----------------
-@Composable
-fun HomeScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("🏠 Home Screen")
-    }
-}

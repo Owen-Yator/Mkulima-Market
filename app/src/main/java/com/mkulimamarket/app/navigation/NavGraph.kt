@@ -5,8 +5,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.mkulimamarket.app.ui.screens.HomeScreen
-import com.mkulimamarket.app.ui.screens.LoginScreen
-import com.mkulimamarket.app.ui.screens.SignupScreen
+import com.mkulimamarket.app.auth.presentation.LoginScreen
+import com.mkulimamarket.app.auth.presentation.SignupScreen
 import com.mkulimamarket.app.ui.screens.SplashScreen
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.LaunchedEffect
