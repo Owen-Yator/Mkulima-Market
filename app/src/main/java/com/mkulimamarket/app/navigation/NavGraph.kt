@@ -4,18 +4,20 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.mkulimamarket.app.ui.screens.HomeScreen
 import com.mkulimamarket.app.auth.presentation.LoginScreen
 import com.mkulimamarket.app.auth.presentation.SignupScreen
+import com.mkulimamarket.app.ui.screens.HomeScreen
+import com.mkulimamarket.app.ui.screens.NationalPricesScreen
+import com.mkulimamarket.app.ui.screens.CountyMarketScreen
 import com.mkulimamarket.app.ui.screens.SplashScreen
-import kotlinx.coroutines.delay
-import androidx.compose.runtime.LaunchedEffect
 
 object Routes {
     const val Splash = "splash"
     const val Login = "login"
     const val Signup = "signup"
     const val Home = "home"
+    const val NationalPrices = "national_prices"
+    const val CountyMarket = "county_market"
 }
 
 @Composable
@@ -30,7 +32,9 @@ fun NavGraph(navController: NavHostController) {
             SplashScreen(
                 onNavigate = {
                     navController.navigate(Routes.Login) {
-                        popUpTo(Routes.Splash) { inclusive = true }
+                        popUpTo(Routes.Splash) {
+                            inclusive = true
+                        }
                     }
                 }
             )
@@ -40,7 +44,9 @@ fun NavGraph(navController: NavHostController) {
             LoginScreen(
                 onLoginSuccess = {
                     navController.navigate(Routes.Home) {
-                        popUpTo(Routes.Login) { inclusive = true }
+                        popUpTo(Routes.Login) {
+                            inclusive = true
+                        }
                     }
                 },
                 onGoToSignup = {
@@ -53,7 +59,9 @@ fun NavGraph(navController: NavHostController) {
             SignupScreen(
                 onSignupSuccess = {
                     navController.navigate(Routes.Home) {
-                        popUpTo(Routes.Signup) { inclusive = true }
+                        popUpTo(Routes.Signup) {
+                            inclusive = true
+                        }
                     }
                 },
                 onGoToLogin = {
@@ -63,7 +71,22 @@ fun NavGraph(navController: NavHostController) {
         }
 
         composable(Routes.Home) {
-            HomeScreen()
+            HomeScreen(
+                onNationalPricesClick = {
+                    navController.navigate(Routes.NationalPrices)
+                },
+                onCountyMarketsClick = {
+                    navController.navigate(Routes.CountyMarket)
+                }
+            )
+        }
+
+        composable(Routes.NationalPrices) {
+            NationalPricesScreen()
+        }
+
+        composable(Routes.CountyMarket) {
+            CountyMarketScreen()
         }
     }
 }
