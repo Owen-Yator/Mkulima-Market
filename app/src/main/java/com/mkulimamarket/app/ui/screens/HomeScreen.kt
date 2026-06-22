@@ -50,7 +50,8 @@ private object MkulimaPalette {
 @Composable
 fun HomeScreen(
     onNationalPricesClick: () -> Unit,
-    onCountyMarketsClick: () -> Unit
+    onCountyMarketsClick: () -> Unit,
+    onPriceTrendsClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -120,7 +121,7 @@ fun HomeScreen(
             description = "Analyze market trends over time",
             icon = Icons.Filled.ShowChart,
             accentColor = MkulimaPalette.SoilRust,
-            onClick = { }
+            onClick = onPriceTrendsClick
         )
 
         DashboardCard(

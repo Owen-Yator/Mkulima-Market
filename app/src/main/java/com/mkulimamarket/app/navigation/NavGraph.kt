@@ -10,6 +10,7 @@ import com.mkulimamarket.app.ui.screens.HomeScreen
 import com.mkulimamarket.app.ui.screens.NationalPricesScreen
 import com.mkulimamarket.app.ui.screens.CountyMarketScreen
 import com.mkulimamarket.app.ui.screens.SplashScreen
+import com.mkulimamarket.app.ui.screens.TrendScreen
 
 object Routes {
     const val Splash = "splash"
@@ -18,6 +19,7 @@ object Routes {
     const val Home = "home"
     const val NationalPrices = "national_prices"
     const val CountyMarket = "county_market"
+    const val PriceTrends = "price_trends"
 }
 
 @Composable
@@ -77,6 +79,9 @@ fun NavGraph(navController: NavHostController) {
                 },
                 onCountyMarketsClick = {
                     navController.navigate(Routes.CountyMarket)
+                },
+                onPriceTrendsClick = {
+                    navController.navigate(Routes.PriceTrends)
                 }
             )
         }
@@ -87,6 +92,10 @@ fun NavGraph(navController: NavHostController) {
 
         composable(Routes.CountyMarket) {
             CountyMarketScreen()
+        }
+
+        composable(Routes.PriceTrends) {
+            TrendScreen()
         }
     }
 }
