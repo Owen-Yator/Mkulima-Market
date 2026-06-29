@@ -18,13 +18,13 @@ class MarketRepository {
 
     fun getCountyPrices(): List<CountyPrice> {
         return listOf(
-            CountyPrice("Nakuru Town", "Maize", "KSh 4,600"),
-            CountyPrice("Molo Market", "Maize", "KSh 4,400"),
-            CountyPrice("Naivasha Market", "Maize", "KSh 4,800")
+            CountyPrice("Maize", "Nakuru", "Nakuru Town", 4600.0, "90kg Bag", "2024-05-15"),
+            CountyPrice("Maize", "Nakuru", "Molo Market", 4400.0, "90kg Bag", "2024-05-15"),
+            CountyPrice("Maize", "Nakuru", "Naivasha Market", 4800.0, "90kg Bag", "2024-05-15")
         )
     }
 
-    // ✅ NEW: Price Trends (ADDED)
+    // ✅ Price Trends
     fun getPriceTrends(): List<PriceTrend> {
         return listOf(
             PriceTrend("Week 1", 4100),
