@@ -1,58 +1,135 @@
 package com.mkulimamarket.app.ui.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mkulimamarket.app.data.model.RawPriceEntry
 import com.mkulimamarket.app.data.repository.PriceRepository
+import com.mkulimamarket.app.data.util.CountyMapping
 import com.mkulimamarket.app.di.NetworkModule
-import com.mkulimamarket.app.domain.model.CountyPrice
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+private const val TAG = "CountyMarketVM"
+
 class CountyMarketViewModel : ViewModel() {
 
-    private val repository = PriceRepository(NetworkModule.api)
+    private val repository =
+        PriceRepository(NetworkModule.api)
 
-    // Selected county
-    private val _county = MutableStateFlow("Nairobi")
-    val county: StateFlow<String> = _county.asStateFlow()
+    sealed class UiState {
 
-    // Prices shown on screen
-    private val _prices = MutableStateFlow<List<CountyPrice>>(emptyList())
-    val prices: StateFlow<List<CountyPrice>> = _prices.asStateFlow()
+        object Loading : UiState()
+
+        object Empty : UiState()
+
+        data class Error(
+            val message: String
+        ) : UiState()
+
+        data class Success(
+            val prices: List<RawPriceEntry>,
+            val sourceMarket: String,
+            val isFallback: Boolean
+        ) : UiState()
+    }
+
+    private val _uiState =
+        MutableStateFlow<UiState>(UiState.Loading)
+
+    val uiState =
+        _uiState.asStateFlow()
+
+    private val _selectedCounty =
+        MutableStateFlow("Nairobi")
+
+    val selectedCounty =
+        _selectedCounty.asStateFlow()
+
+    val counties =
+        CountyMapping.ALL_47_COUNTIES
 
     init {
-        loadData()
+        load()
     }
 
-    fun loadData() {
+    fun onCountySelected(county: String) {
+
+        if (county == _selectedCounty.value) return
+
+        _selectedCounty.value = county
+
+        refreshPrices()
+    }
+
+    private fun load() {
+
         viewModelScope.launch {
-            // Download prices from API
-            repository.loadPrices()
-            updatePrices()
+
+            try {
+
+                _uiState.value = UiState.Loading
+
+                repository.loadPrices()
+
+                refreshPrices()
+
+            } catch (e: Exception) {
+
+                Log.e(TAG, "Failed to load prices", e)
+
+                _uiState.value =
+                    UiState.Error(
+                        e.message ?: "Unable to load market prices."
+                    )
+            }
         }
     }
 
-    fun setCounty(newCounty: String) {
-        _county.value = newCounty
-        updatePrices()
-    }
+    private fun refreshPrices() {
 
-    private fun updatePrices() {
-        // Map RawPriceEntry from repository to CountyPrice domain model
-        val rawData = repository.getByCounty(_county.value)
-        _prices.value = rawData.map { raw ->
-            CountyPrice(
-                commodity = raw.commodity,
-                county = raw.county,
-                market = raw.market,
-                price = raw.price,
-                unit = raw.unit,
-                date = raw.date
+        val county =
+            _selectedCounty.value
+
+        Log.d(TAG, "Refreshing prices for $county")
+
+        val (prices, market) =
+            repository.getByCounty(county)
+
+        if (prices.isEmpty()) {
+
+            Log.d(TAG, "No prices found for $county")
+
+            _uiState.value =
+                UiState.Empty
+
+            return
+        }
+
+        Log.d(
+            TAG,
+            "Loaded ${prices.size} commodities from $market"
+        )
+
+        _uiState.value =
+            UiState.Success(
+                prices = prices,
+                sourceMarket = market,
+
+                // Uses CountyMapping instead of string comparison
+                isFallback =
+                    !CountyMapping.hasDirectCoverage(county)
             )
-        }
     }
 
-    fun getNationalAverages() = repository.getNationalAverages()
+    /**
+     * Allows pull-to-refresh or manual reload.
+     */
+    fun refresh() {
+
+        repository.invalidateCache()
+
+        load()
+    }
 }
