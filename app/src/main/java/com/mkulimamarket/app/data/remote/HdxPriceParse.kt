@@ -9,21 +9,34 @@ object HdxPriceParser {
 
     fun parse(csv: String): List<RawPriceEntry> {
 
-        if (csv.isBlank()) return emptyList()
-
-        val results = mutableListOf<RawPriceEntry>()
+        if (csv.isBlank()) {
+            Log.e(TAG, "CSV is empty")
+            return emptyList()
+        }
 
         val lines = csv.lines()
+        val results = mutableListOf<RawPriceEntry>()
+        var skippedRows = 0
+
+        Log.d(TAG, "CSV contains ${lines.size} lines")
+
+        if (lines.size > 2) {
+            Log.d(TAG, "Header: ${lines[0]}")
+            Log.d(TAG, "HXL: ${lines[1]}")
+        }
 
         for (i in 2 until lines.size) {
 
             val line = lines[i].trim()
 
-            if (line.isEmpty()) continue
+            if (line.isBlank()) continue
 
             val cols = parseCsvLine(line)
 
-            if (cols.size < 15) continue
+            if (cols.size < 15) {
+                skippedRows++
+                continue
+            }
 
             try {
 
@@ -32,23 +45,40 @@ object HdxPriceParser {
                 // admin2 column
                 val county = cols[2].trim()
 
-                val market = cols[3].trim()
+                // market column
+                val market = cols[3].trim().ifBlank { county }
 
                 val category = cols[7].trim()
-
                 val commodity = cols[8].trim()
-
                 val unit = cols[10].trim()
-
                 val priceType = cols[12].trim()
-
                 val currency = cols[13].trim()
-
                 val price = cols[14].trim().toDoubleOrNull()
 
-                if (currency != "KES") continue
+                if (date.isBlank()) {
+                    skippedRows++
+                    continue
+                }
 
-                if (price == null) continue
+                if (county.isBlank()) {
+                    skippedRows++
+                    continue
+                }
+
+                if (commodity.isBlank()) {
+                    skippedRows++
+                    continue
+                }
+
+                if (!currency.equals("KES", ignoreCase = true)) {
+                    skippedRows++
+                    continue
+                }
+
+                if (price == null || price <= 0.0) {
+                    skippedRows++
+                    continue
+                }
 
                 results.add(
                     RawPriceEntry(
@@ -63,16 +93,52 @@ object HdxPriceParser {
                     )
                 )
 
-            } catch (_: Exception) {
+            } catch (e: Exception) {
 
+                skippedRows++
+
+                Log.e(
+                    TAG,
+                    "Failed to parse row ${i + 1}: ${e.message}"
+                )
             }
         }
 
-        Log.d(TAG, "Parsed ${results.size} records")
+        Log.d(
+            TAG,
+            "Successfully parsed ${results.size} records"
+        )
+
+        Log.d(
+            TAG,
+            "Skipped $skippedRows invalid rows"
+        )
+
+        val availableMarkets = results
+            .map { it.county }
+            .distinct()
+            .sorted()
+
+        Log.d(
+            TAG,
+            "========== AVAILABLE MARKETS =========="
+        )
+
+        availableMarkets.forEach {
+            Log.d(TAG, it)
+        }
+
+        Log.d(
+            TAG,
+            "======================================="
+        )
 
         return results
     }
 
+    /**
+     * CSV parser supporting quoted fields.
+     */
     private fun parseCsvLine(line: String): List<String> {
 
         val result = mutableListOf<String>()
@@ -85,16 +151,18 @@ object HdxPriceParser {
 
             when {
 
-                char == '"' ->
+                char == '"' -> {
                     inQuotes = !inQuotes
+                }
 
                 char == ',' && !inQuotes -> {
                     result.add(current.toString())
                     current.clear()
                 }
 
-                else ->
+                else -> {
                     current.append(char)
+                }
             }
         }
 
