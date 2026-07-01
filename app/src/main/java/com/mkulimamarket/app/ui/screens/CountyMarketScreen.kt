@@ -19,15 +19,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mkulimamarket.app.ui.viewmodel.CountyMarketViewModel
 
-// Brand Colors
 private val GreenDeep = Color(0xFF1B5E20)
 private val GreenPrimary = Color(0xFF2E7D32)
-private val GreenLight = Color(0xFF81C784)
 private val GreenSurface = Color(0xFFF1F8E9)
 private val GoldAccent = Color(0xFFF9A825)
 
@@ -36,31 +35,23 @@ fun CountyMarketScreen(
     viewModel: CountyMarketViewModel = viewModel()
 ) {
 
-    // Observe selected county from ViewModel
-    val selectedCounty by viewModel.county.collectAsStateWithLifecycle()
+    val selectedCounty by viewModel.selectedCounty.collectAsStateWithLifecycle()
 
-    // Observe prices for selected county from ViewModel StateFlow
-    val prices by viewModel.prices.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // Kenya counties
-    val counties = listOf(
-        "Baringo", "Bomet", "Bungoma", "Busia",
-        "Elgeyo Marakwet", "Embu", "Garissa",
-        "Homa Bay", "Isiolo", "Kajiado",
-        "Kakamega", "Kericho", "Kiambu",
-        "Kilifi", "Kirinyaga", "Kisii",
-        "Kisumu", "Kitui", "Kwale",
-        "Laikipia", "Lamu", "Machakos",
-        "Makueni", "Mandera", "Marsabit",
-        "Meru", "Migori", "Mombasa",
-        "Murang'a", "Nairobi", "Nakuru",
-        "Nandi", "Narok", "Nyamira",
-        "Nyandarua", "Nyeri", "Samburu",
-        "Siaya", "Taita Taveta", "Tana River",
-        "Tharaka Nithi", "Trans Nzoia",
-        "Turkana", "Uasin Gishu",
-        "Vihiga", "Wajir", "West Pokot"
-    )
+    val successState =
+        uiState as? CountyMarketViewModel.UiState.Success
+
+    val prices =
+        successState?.prices ?: emptyList()
+
+    val sourceMarket =
+        successState?.sourceMarket ?: ""
+
+    val isFallback =
+        successState?.isFallback ?: false
+
+    val counties = viewModel.counties
 
     Column(
         modifier = Modifier
@@ -68,7 +59,6 @@ fun CountyMarketScreen(
             .background(GreenSurface)
     ) {
 
-        // Header
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -106,8 +96,8 @@ fun CountyMarketScreen(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "Live prices from local markets",
-                    color = Color.White.copy(alpha = 0.8f)
+                    text = "Live commodity prices from monitored WFP markets",
+                    color = Color.White.copy(alpha = 0.85f)
                 )
             }
         }
@@ -132,7 +122,7 @@ fun CountyMarketScreen(
                 counties = counties,
                 selected = selectedCounty,
                 onSelected = {
-                    viewModel.setCounty(it)
+                    viewModel.onCountySelected(it)
                 }
             )
 
@@ -160,7 +150,7 @@ fun CountyMarketScreen(
                     ) {
 
                         Text(
-                            text = "${prices.size}",
+                            text = prices.size.toString(),
                             color = Color.White,
                             modifier = Modifier.padding(
                                 horizontal = 8.dp,
@@ -174,13 +164,70 @@ fun CountyMarketScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             AnimatedVisibility(
-                visible = prices.isEmpty(),
+                visible = isFallback
+            ) {
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 14.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFFFF8E1)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = GoldAccent
+                        )
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Text(
+                            text =
+                                "No WFP monitored market exists in $selectedCounty.\nShowing prices from the nearest monitored market: $sourceMarket.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+
+            if (uiState is CountyMarketViewModel.UiState.Loading) {
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+
+                    CircularProgressIndicator(
+                        color = GreenPrimary
+                    )
+                }
+            }
+
+            AnimatedVisibility(
+                visible =
+                    prices.isEmpty() &&
+                            uiState !is CountyMarketViewModel.UiState.Loading,
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {
 
                 EmptyState(
-                    message = "No prices found for $selectedCounty.\nCheck back soon."
+                    message =
+                        if (uiState is CountyMarketViewModel.UiState.Error)
+                            (uiState as CountyMarketViewModel.UiState.Error).message
+                        else
+                            "No commodity prices are currently available for $selectedCounty or its mapped market."
                 )
             }
 
@@ -207,7 +254,6 @@ fun CountyMarketScreen(
         }
     }
 }
-
 @Composable
 private fun CountyPriceCard(
     market: String,
@@ -221,7 +267,9 @@ private fun CountyPriceCard(
         colors = CardDefaults.cardColors(
             containerColor = Color.White
         ),
-        elevation = CardDefaults.cardElevation(2.dp)
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 4.dp
+        )
     ) {
 
         Row(
@@ -244,10 +292,10 @@ private fun CountyPriceCard(
                     )
                 )
 
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = market,
+                    text = "Market: $market",
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = Color.Gray
                     )
@@ -260,7 +308,7 @@ private fun CountyPriceCard(
             ) {
 
                 Text(
-                    text = price,
+                    text = price.replace("KES", "KSh"),
                     style = MaterialTheme.typography.labelLarge.copy(
                         color = GreenPrimary,
                         fontWeight = FontWeight.Bold
@@ -276,7 +324,7 @@ private fun CountyPriceCard(
 }
 
 @Composable
-fun CountySelectorDropdown(
+private fun CountySelectorDropdown(
     counties: List<String>,
     selected: String,
     onSelected: (String) -> Unit
@@ -289,11 +337,16 @@ fun CountySelectorDropdown(
     Box {
 
         OutlinedButton(
-            onClick = { expanded = true },
+            onClick = {
+                expanded = true
+            },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(12.dp)
+                .height(54.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = GreenDeep
+            )
         ) {
 
             Row(
@@ -303,12 +356,14 @@ fun CountySelectorDropdown(
             ) {
 
                 Text(
-                    text = selected
+                    text = selected,
+                    style = MaterialTheme.typography.bodyLarge
                 )
 
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = null
+                    contentDescription = null,
+                    tint = GreenPrimary
                 )
             }
         }
@@ -325,7 +380,9 @@ fun CountySelectorDropdown(
             counties.forEach { county ->
 
                 DropdownMenuItem(
+
                     text = {
+
                         Text(
                             text = county,
                             fontWeight =
@@ -335,9 +392,11 @@ fun CountySelectorDropdown(
                                     FontWeight.Normal
                         )
                     },
+
                     onClick = {
-                        onSelected(county)
+
                         expanded = false
+                        onSelected(county)
                     }
                 )
             }
@@ -350,18 +409,52 @@ private fun EmptyState(
     message: String
 ) {
 
-    Box(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 48.dp),
-        contentAlignment = Alignment.Center
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
+        )
     ) {
 
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = Color.Gray
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+
+            Icon(
+                imageVector = Icons.Default.LocationOn,
+                contentDescription = null,
+                tint = Color.Gray,
+                modifier = Modifier.size(42.dp)
             )
-        )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "No Market Data",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = GreenDeep
+                )
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color.Gray
+                ),
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
