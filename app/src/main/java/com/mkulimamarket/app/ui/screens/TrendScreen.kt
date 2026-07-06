@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material3.*
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -15,6 +16,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mkulimamarket.app.ui.components.PriceLineChart
 import com.mkulimamarket.app.ui.viewmodel.AlertViewModel
@@ -28,12 +30,12 @@ private val GoldAccent = Color(0xFFF9A825)
 @Composable
 fun TrendScreen() {
 
-    val viewModel: TrendViewModel = viewModel()
-    val trends = viewModel.trends
-    val insight = viewModel.getInsight()
-
+    val trendViewModel: TrendViewModel = viewModel()
     val alertViewModel: AlertViewModel = viewModel()
-    val alert = alertViewModel.getAlert()
+
+    val trends by trendViewModel.trends.collectAsStateWithLifecycle()
+    val insight by trendViewModel.insight.collectAsStateWithLifecycle()
+    val alert by alertViewModel.alert.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -41,7 +43,6 @@ fun TrendScreen() {
             .background(GreenSurface)
     ) {
 
-        // Header Banner
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -52,6 +53,7 @@ fun TrendScreen() {
                 )
                 .padding(horizontal = 20.dp, vertical = 24.dp)
         ) {
+
             Column {
 
                 Row(
@@ -95,7 +97,6 @@ fun TrendScreen() {
             contentPadding = PaddingValues(vertical = 20.dp)
         ) {
 
-            // Insight Card
             item {
 
                 Card(
@@ -151,8 +152,7 @@ fun TrendScreen() {
                 }
             }
 
-            // Alert Card
-            alert?.let {
+            alert?.let { currentAlert ->
 
                 item {
 
@@ -160,8 +160,7 @@ fun TrendScreen() {
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor =
-                                MaterialTheme.colorScheme.secondaryContainer
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
                         ),
                         elevation = CardDefaults.cardElevation(
                             defaultElevation = 2.dp
@@ -169,7 +168,7 @@ fun TrendScreen() {
                     ) {
 
                         Text(
-                            text = "🔔 ${it.message}",
+                            text = "🔔 ${currentAlert.message}",
                             modifier = Modifier.padding(16.dp),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Medium
@@ -179,7 +178,6 @@ fun TrendScreen() {
                 }
             }
 
-            // Chart Card
             if (trends.isNotEmpty()) {
 
                 item {
@@ -217,7 +215,6 @@ fun TrendScreen() {
                 }
             }
 
-            // Section Title
             item {
 
                 Text(
@@ -229,7 +226,6 @@ fun TrendScreen() {
                 )
             }
 
-            // Headers
             item {
 
                 Row(
@@ -255,7 +251,6 @@ fun TrendScreen() {
                 }
             }
 
-            // Empty State
             if (trends.isEmpty()) {
 
                 item {

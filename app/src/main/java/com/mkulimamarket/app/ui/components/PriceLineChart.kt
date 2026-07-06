@@ -1,6 +1,3 @@
-// FILE 1 of 5
-// Location: com/mkulimamarket/app/ui/components/PriceLineChart.kt
-
 package com.mkulimamarket.app.ui.components
 
 import androidx.compose.foundation.Canvas
@@ -20,30 +17,16 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 
-// Brand colors kept consistent with the rest of the app
-private val ChartLineColor    = Color(0xFF2E7D32)   // Deep forest green
-private val ChartPointColor   = Color(0xFF81C784)   // Soft leaf green (dot fill)
-private val ChartPointBorder  = Color(0xFF1B5E20)   // Dark border on dots
-private val ChartFillTop      = Color(0x552E7D32)   // Semi-transparent fill top
-private val ChartFillBottom   = Color(0x002E7D32)   // Transparent fill bottom
-private val ChartGridColor    = Color(0x22000000)   // Subtle grid lines
+private val ChartLineColor    = Color(0xFF2E7D32)
+private val ChartPointColor   = Color(0xFF81C784)
+private val ChartPointBorder  = Color(0xFF1B5E20)
+private val ChartFillTop      = Color(0x552E7D32)
+private val ChartFillBottom   = Color(0x002E7D32)
+private val ChartGridColor    = Color(0x22000000)
 
-/**
- * A polished line chart for displaying price trends.
- *
- * Improvements over the original:
- * - Filled area under the line for better readability
- * - Subtle horizontal grid lines for scale reference
- * - Clipped rounded corners so it looks like a card element
- * - Larger tap-friendly data points with a white border ring
- * - StrokeCap.Round on lines for a smoother feel
- * - Guards against single-point data (no line to draw, just a dot)
- *
- * @param data  Ordered list of integer prices (oldest → newest, left → right).
- */
 @Composable
 fun PriceLineChart(
-    data: List<Int>,
+    data: List<Double>,
     modifier: Modifier = Modifier
 ) {
     if (data.isEmpty()) return
@@ -53,18 +36,18 @@ fun PriceLineChart(
             .fillMaxWidth()
             .height(180.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFFF1F8E9)) // Very light green tint background
+            .background(Color(0xFFF1F8E9))
             .padding(horizontal = 8.dp, vertical = 8.dp)
     ) {
         val maxValue = data.maxOrNull() ?: return@Canvas
         val minValue = data.minOrNull() ?: return@Canvas
-        val range    = (maxValue - minValue).coerceAtLeast(1) // avoid ÷0
+        val range    = (maxValue - minValue).coerceAtLeast(1.0)
 
         val stepX = if (data.size > 1) size.width / (data.size - 1) else size.width / 2f
-        val padV  = 16f // vertical padding so dots don't clip at top/bottom
+        val padV  = 16f
 
-        fun yFor(value: Int): Float {
-            val normalized = (value - minValue).toFloat() / range
+        fun yFor(value: Double): Float {
+            val normalized = (value - minValue).toFloat() / range.toFloat()
             return size.height - padV - normalized * (size.height - padV * 2)
         }
 
@@ -72,7 +55,6 @@ fun PriceLineChart(
             Offset(x = i * stepX, y = yFor(v))
         }
 
-        // ── Grid lines (3 horizontal levels) ─────────────────────────────────
         val gridCount = 3
         repeat(gridCount) { i ->
             val y = (size.height / (gridCount + 1)) * (i + 1)
@@ -84,7 +66,6 @@ fun PriceLineChart(
             )
         }
 
-        // ── Filled area under the line ────────────────────────────────────────
         if (points.size > 1) {
             val fillPath = Path().apply {
                 moveTo(points.first().x, size.height)
@@ -101,7 +82,6 @@ fun PriceLineChart(
                 )
             )
 
-            // ── Line connecting all points ────────────────────────────────────
             for (i in 0 until points.size - 1) {
                 drawLine(
                     color       = ChartLineColor,
@@ -113,13 +93,9 @@ fun PriceLineChart(
             }
         }
 
-        // ── Data points ───────────────────────────────────────────────────────
         points.forEach { pt ->
-            // White ring
             drawCircle(color = Color.White,         radius = 9f,  center = pt)
-            // Colored fill
             drawCircle(color = ChartPointColor,     radius = 7f,  center = pt)
-            // Dark border
             drawCircle(
                 color  = ChartPointBorder,
                 radius = 7f,
