@@ -1,6 +1,8 @@
 package com.mkulimamarket.app.di
 
+import com.mkulimamarket.app.AppContext
 import com.mkulimamarket.app.data.remote.WfpPriceService
+import com.mkulimamarket.app.data.repository.PriceRepository
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -29,4 +31,11 @@ object NetworkModule {
 
     val api: WfpPriceService =
         retrofit.create(WfpPriceService::class.java)
+
+    val priceRepository: PriceRepository by lazy {
+        PriceRepository(
+            api = api,
+            context = AppContext.instance
+        )
+    }
 }
