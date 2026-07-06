@@ -1,45 +1,60 @@
-// FILE 5 of 5
-// Location: com/mkulimamarket/app/ui/viewmodel/TrendViewModel.kt
-
 package com.mkulimamarket.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
-import com.mkulimamarket.app.data.repository.MarketRepository
+import androidx.lifecycle.viewModelScope
+import com.mkulimamarket.app.di.NetworkModule
 import com.mkulimamarket.app.domain.model.PriceTrend
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
-/**
- * ViewModel for the price trend screen.
- *
- * Improvements over the original:
- * - Insight logic is more defensive: guards against empty or single-item lists
- *   so the app won't crash with an IndexOutOfBoundsException on `prices.last()`
- *   or `prices.first()` when trends is empty.
- * - Emoji removed from insight strings and moved to the UI layer (TrendScreen)
- *   to keep the ViewModel free of presentation concerns.
- * - Uses `firstOrNull` / `lastOrNull` for null-safe access.
- * - Minor: `getInsight()` renamed nothing (kept same name for API compatibility)
- *   but logic is now guarded and readable.
- */
 class TrendViewModel : ViewModel() {
 
-    private val repository = MarketRepository()
+    private val repository = NetworkModule.priceRepository
 
-    val trends: List<PriceTrend> = repository.getPriceTrends()
+    private val _trends =
+        MutableStateFlow<List<PriceTrend>>(emptyList())
 
-    /**
-     * Returns a human-readable insight string based on first vs last price.
-     * Safe to call even when [trends] is empty.
-     */
-    fun getInsight(): String {
-        val prices = trends.map { it.price }
+    val trends: StateFlow<List<PriceTrend>> =
+        _trends.asStateFlow()
 
-        val first = prices.firstOrNull() ?: return "➖ No data available yet."
-        val last  = prices.lastOrNull()  ?: return "➖ No data available yet."
+    val insight: StateFlow<String> = repository.prices.map { prices ->
+        calculateInsight(prices.filter { it.commodity.equals("Maize", true) })
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Calculating...")
+
+    init {
+        viewModelScope.launch {
+            repository.prices.collect { prices ->
+                _trends.value =
+                    prices
+                        .groupBy { it.commodity }
+                        .flatMap { (_, entries) ->
+                            entries
+                                .sortedBy { it.date }
+                                .map {
+                                    PriceTrend(
+                                        week = it.date,
+                                        price = it.price
+                                    )
+                                }
+                        }
+            }
+        }
+    }
+
+    private fun calculateInsight(maizeEntries: List<com.mkulimamarket.app.data.model.RawPriceEntry>): String {
+        val sorted = maizeEntries.sortedBy { it.date }
+        val first = sorted.firstOrNull()?.price ?: return "➖ No data available yet."
+        val last = sorted.lastOrNull()?.price ?: return "➖ No data available yet."
 
         return when {
             last > first -> "📈 Prices are rising. Waiting before selling may be worthwhile."
             last < first -> "📉 Prices are falling. Selling sooner may get a better return."
-            else         -> "➖ Prices are stable this week."
+            else -> "➖ Prices are stable this week."
         }
     }
 }

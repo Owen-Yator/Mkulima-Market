@@ -3,7 +3,6 @@ package com.mkulimamarket.app.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mkulimamarket.app.data.repository.NationalPrice
-import com.mkulimamarket.app.data.repository.PriceRepository
 import com.mkulimamarket.app.di.NetworkModule
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -11,72 +10,44 @@ import kotlinx.coroutines.launch
 
 class NationalPricesViewModel : ViewModel() {
 
-    private val repository =
-        PriceRepository(NetworkModule.api)
+    private val repository = NetworkModule.priceRepository
 
     sealed class UiState {
-
         object Loading : UiState()
-
         object Empty : UiState()
-
-        data class Error(
-            val message: String
-        ) : UiState()
-
         data class Success(
-            val grouped:
-            Map<String, List<NationalPrice>>
+            val grouped: Map<String, List<NationalPrice>>
         ) : UiState()
+        data class Error(val message: String) : UiState()
     }
 
-    private val _uiState =
-        MutableStateFlow<UiState>(UiState.Loading)
+    private val _uiState = MutableStateFlow<UiState>(UiState.Loading)
+    val uiState = _uiState.asStateFlow()
 
-    val uiState =
-        _uiState.asStateFlow()
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery = _searchQuery.asStateFlow()
 
-    private val _searchQuery =
-        MutableStateFlow("")
+    private var all = emptyList<NationalPrice>()
 
-    val searchQuery =
-        _searchQuery.asStateFlow()
+    init { load() }
 
-    private var allPrices =
-        emptyList<NationalPrice>()
-
-    init {
-
+    fun refresh() {
+        repository.invalidateCache()
         load()
     }
 
-    fun onSearchQueryChanged(
-        query: String
-    ) {
-
+    fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
-
         applyFilter()
     }
 
-    fun refresh() {
-
-        repository.invalidateCache()
-
-        load()
-    }
-
     private fun load() {
-
         viewModelScope.launch {
-
-            _uiState.value =
-                UiState.Loading
+            _uiState.value = UiState.Loading
 
             repository.loadPrices()
 
-            allPrices =
-                repository.getNationalPrices()
+            all = repository.getNationalPrices()
 
             applyFilter()
         }
@@ -84,35 +55,15 @@ class NationalPricesViewModel : ViewModel() {
 
     private fun applyFilter() {
 
-        val query =
-            _searchQuery.value
+        val q = _searchQuery.value
 
-        val filtered =
-            if (query.isBlank()) {
-
-                allPrices
-
-            } else {
-
-                allPrices.filter {
-
-                    it.commodity.contains(query, true) ||
-                            it.category.contains(query, true)
-                }
-            }
+        val filtered = if (q.isBlank()) all else all.filter {
+            it.commodity.contains(q, true) ||
+                    it.category.contains(q, true)
+        }
 
         _uiState.value =
-            if (filtered.isEmpty()) {
-
-                UiState.Empty
-
-            } else {
-
-                UiState.Success(
-                    filtered.groupBy {
-                        it.categoryLabel
-                    }
-                )
-            }
+            if (filtered.isEmpty()) UiState.Empty
+            else UiState.Success(filtered.groupBy { it.category })
     }
 }

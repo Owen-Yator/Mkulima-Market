@@ -27,10 +27,10 @@ class MarketRepository {
     // ✅ Price Trends
     fun getPriceTrends(): List<PriceTrend> {
         return listOf(
-            PriceTrend("Week 1", 4100),
-            PriceTrend("Week 2", 4300),
-            PriceTrend("Week 3", 4500),
-            PriceTrend("Week 4", 4800)
+            PriceTrend("Week 1", 4100.0),
+            PriceTrend("Week 2", 4300.0),
+            PriceTrend("Week 3", 4500.0),
+            PriceTrend("Week 4", 4800.0)
         )
     }
 }
