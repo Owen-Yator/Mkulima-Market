@@ -1,54 +1,50 @@
 package com.mkulimamarket.app.data.remote
 
+import android.util.Log
 import com.mkulimamarket.app.data.model.RawPriceEntry
 
 object HdxPriceParser {
 
+    private const val TAG = "CSV"
+
     fun parse(csv: String): List<RawPriceEntry> {
 
-        val lines = csv.lineSequence()
-        val result = ArrayList<RawPriceEntry>(8000)
+        val result = mutableListOf<RawPriceEntry>()
 
-        for (line in lines) {
+        csv.lineSequence()
+            .drop(1)
+            .forEachIndexed { index, line ->
 
-            if (line.isBlank()) continue
-            if (line.startsWith("date", ignoreCase = true)) continue
+                val cols = line.split(",")
 
-            val cols = line.split(",")
+                if (cols.size < 15) {
+                    Log.d(TAG, "Line $index skipped: only ${cols.size} columns")
+                    return@forEachIndexed
+                }
 
-            if (cols.size < 15) continue
+                val price = cols[14].toDoubleOrNull()
 
-            val date = cols[0].trim()
-            val county = cols[2].trim()
-            val market = cols[3].trim().ifBlank { county }
+                if (price == null) {
+                    Log.d(TAG, "Bad price line:")
+                    Log.d(TAG, line)
+                    return@forEachIndexed
+                }
 
-            val category = cols[7].trim()
-            val commodity = cols[8].trim()
-            val unit = cols[10].trim()
-            val currency = cols[13].trim()
-            val price = cols[14].trim().toDoubleOrNull()
-
-            if (date.isBlank() ||
-                county.isBlank() ||
-                commodity.isBlank() ||
-                price == null ||
-                price <= 0.0 ||
-                !currency.equals("KES", true)
-            ) continue
-
-            result.add(
-                RawPriceEntry(
-                    date = date,
-                    county = county,
-                    market = market,
-                    category = category,
-                    commodity = commodity,
-                    unit = unit,
-                    priceType = cols[12].trim(),
-                    price = price
+                result.add(
+                    RawPriceEntry(
+                        date = cols[0].trim(),
+                        county = cols[2].trim(),
+                        market = cols[3].trim(),
+                        category = cols[7].trim(),
+                        commodity = cols[8].trim(),
+                        unit = cols[10].trim(),
+                        priceType = cols[12].trim(),
+                        price = price
+                    )
                 )
-            )
-        }
+            }
+
+        Log.d(TAG, "Rows parsed = ${result.size}")
 
         return result
     }
