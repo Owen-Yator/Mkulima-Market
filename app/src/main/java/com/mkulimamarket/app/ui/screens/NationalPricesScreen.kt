@@ -23,13 +23,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mkulimamarket.app.data.repository.NationalPrice
 import com.mkulimamarket.app.ui.viewmodel.NationalPricesViewModel
 
-// ── Brand palette ─────────────────────────────────────────────────────────────
 private val GreenDeep = Color(0xFF1B5E20)
 private val GreenPrimary = Color(0xFF2E7D32)
 private val GreenSurface = Color(0xFFF1F8E9)
 private val GoldAccent = Color(0xFFF9A825)
 
-// ── Category colours ──────────────────────────────────────────────────────────
 private val CATEGORY_COLORS = mapOf(
     "Cereals" to Color(0xFFE8F5E9),
     "Pulses" to Color(0xFFFFF8E1),
@@ -61,8 +59,6 @@ fun NationalPricesScreen(
             .fillMaxSize()
             .background(GreenSurface)
     ) {
-
-        // ───────────────── Header ─────────────────
 
         Box(
             modifier = Modifier
@@ -126,7 +122,7 @@ fun NationalPricesScreen(
             }
         }
 
-        // ───────────────── Body ─────────────────
+
 
         Column(
             modifier = Modifier
