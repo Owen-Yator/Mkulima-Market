@@ -29,7 +29,9 @@ class NationalPricesViewModel : ViewModel() {
 
     private var all = emptyList<NationalPrice>()
 
-    init { load() }
+    init {
+        load()
+    }
 
     fun refresh() {
         repository.invalidateCache()
@@ -42,11 +44,25 @@ class NationalPricesViewModel : ViewModel() {
     }
 
     private fun load() {
+
         viewModelScope.launch {
+
             _uiState.value = UiState.Loading
 
-            repository.loadPrices()
+            // Fast local load
+            repository.loadLocalPrices()
 
+            all = repository.getNationalPrices()
+
+            applyFilter()
+        }
+
+        // Silent background refresh
+        viewModelScope.launch {
+
+            repository.refreshFromNetwork()
+
+            // Reload data if the repository has been updated
             all = repository.getNationalPrices()
 
             applyFilter()
@@ -55,15 +71,25 @@ class NationalPricesViewModel : ViewModel() {
 
     private fun applyFilter() {
 
-        val q = _searchQuery.value
+        val query = _searchQuery.value.trim()
 
-        val filtered = if (q.isBlank()) all else all.filter {
-            it.commodity.contains(q, true) ||
-                    it.category.contains(q, true)
-        }
+        val filtered =
+            if (query.isBlank()) {
+                all
+            } else {
+                all.filter {
+                    it.commodity.contains(query, ignoreCase = true) ||
+                            it.category.contains(query, ignoreCase = true)
+                }
+            }
 
         _uiState.value =
-            if (filtered.isEmpty()) UiState.Empty
-            else UiState.Success(filtered.groupBy { it.category })
+            if (filtered.isEmpty()) {
+                UiState.Empty
+            } else {
+                UiState.Success(
+                    filtered.groupBy { it.category }
+                )
+            }
     }
 }

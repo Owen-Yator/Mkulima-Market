@@ -41,20 +41,27 @@ class TrendViewModel : ViewModel() {
 
     init {
 
+        // Load local data immediately
         viewModelScope.launch {
 
-            repository.loadPrices()
+            repository.loadLocalPrices()
 
-            val firstCommodity =
-                repository.prices.value
-                    .map { it.commodity }
-                    .distinct()
-                    .sorted()
-                    .firstOrNull()
+            val firstCommodity = repository.prices.value
+                .map { it.commodity }
+                .distinct()
+                .sorted()
+                .firstOrNull()
 
-            if (firstCommodity != null) {
+            if (firstCommodity != null &&
+                _selectedCommodity.value.isBlank()
+            ) {
                 _selectedCommodity.value = firstCommodity
             }
+        }
+
+        // Refresh silently in background
+        viewModelScope.launch {
+            repository.refreshFromNetwork()
         }
     }
 
@@ -101,7 +108,9 @@ class TrendViewModel : ViewModel() {
         ) { prices, commodity ->
 
             if (commodity.isBlank()) {
+
                 "Select a crop."
+
             } else {
 
                 calculateInsight(
@@ -148,9 +157,9 @@ Commodity: $commodity
 
 Records: ${trends.size}
 
-First Price: ${trends.first().price}
+First Price: KSh ${"%.2f".format(trends.first().price)}
 
-Latest Price: ${trends.last().price}
+Latest Price: KSh ${"%.2f".format(trends.last().price)}
         """.trimIndent()
     }
 
@@ -164,19 +173,15 @@ Latest Price: ${trends.last().price}
 
                 val sorted = entries.sortedBy { it.date }
 
-                val first =
-                    sorted.firstOrNull()?.price
-                        ?: return@mapNotNull null
+                val first = sorted.firstOrNull()?.price
+                    ?: return@mapNotNull null
 
-                val last =
-                    sorted.lastOrNull()?.price
-                        ?: return@mapNotNull null
+                val last = sorted.lastOrNull()?.price
+                    ?: return@mapNotNull null
 
-                if (first == 0.0)
-                    return@mapNotNull null
+                if (first == 0.0) return@mapNotNull null
 
-                val pct =
-                    ((last - first) / first) * 100
+                val pct = ((last - first) / first) * 100
 
                 when {
 
@@ -204,23 +209,19 @@ Latest Price: ${trends.last().price}
         entries: List<RawPriceEntry>
     ): String {
 
-        val sorted =
-            entries.sortedBy { it.date }
+        val sorted = entries.sortedBy { it.date }
 
-        val first =
-            sorted.firstOrNull()?.price
-                ?: return "No data available."
+        val first = sorted.firstOrNull()?.price
+            ?: return "No data available."
 
-        val last =
-            sorted.lastOrNull()?.price
-                ?: return "No data available."
+        val last = sorted.lastOrNull()?.price
+            ?: return "No data available."
 
         if (first == 0.0) {
             return "No data available."
         }
 
-        val pct =
-            ((last - first) / first) * 100
+        val pct = ((last - first) / first) * 100
 
         return when {
 
