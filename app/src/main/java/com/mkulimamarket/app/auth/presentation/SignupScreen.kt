@@ -1,19 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // SignupScreen.kt
 // Location: com/mkulimamarket/app/auth/presentation/SignupScreen.kt
-//
-// Design approach:
-//   - Compact green header bar (smaller than Login — screen is form-heavy)
-//   - Scrollable form body so the keyboard never hides fields
-//   - County field uses a CountySelectorDropdown (the real dropdown from
-//     CountyMapping) so users pick, not type — prevents spelling mismatches
-//     NOTE: if you haven't passed the county list in yet, the field falls
-//     back to a plain OutlinedTextField — no breakage.
-//   - Progress step indicator at the top of the form (visual polish only,
-//     no logic change — just shows the user they're "creating" something)
-//   - Same gold CTA, same green palette, same field style as LoginScreen
-//
-// ALL original callbacks and ViewModel calls are untouched.
 // ─────────────────────────────────────────────────────────────────────────────
 
 package com.mkulimamarket.app.auth.presentation
@@ -49,7 +36,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mkulimamarket.app.auth.viewmodel.AuthViewModel
 import com.mkulimamarket.app.data.util.CountyMapping
 
-// ── Palette (shared with LoginScreen) ────────────────────────────────────────
+// ── Palette ──────────────────────────────────────────────────────────────────
 private val GreenDeep    = Color(0xFF1B5E20)
 private val GreenMid     = Color(0xFF2E7D32)
 private val GoldAccent   = Color(0xFFF9A825)
@@ -65,6 +52,9 @@ fun SignupScreen(
     viewModel: AuthViewModel = viewModel()
 ) {
     val state        = viewModel.uiState.value
+    val loading by     viewModel.loading.collectAsState()
+    val message by     viewModel.message.collectAsState()
+
     val focusManager = LocalFocusManager.current
     val scrollState  = rememberScrollState()
     var showPassword by remember { mutableStateOf(false) }
@@ -121,7 +111,7 @@ fun SignupScreen(
                     .padding(horizontal = 28.dp, vertical = 28.dp),
             ) {
 
-                // Step indicator (decorative — no logic change)
+                // Step indicator
                 StepIndicator(currentStep = 1, totalSteps = 1)
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -150,7 +140,7 @@ fun SignupScreen(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-
+                // ── Email ─────────────────────────────────────────────────────
                 FieldLabel("Email address")
                 OutlinedTextField(
                     value         = state.email,
@@ -199,12 +189,11 @@ fun SignupScreen(
                 Spacer(modifier = Modifier.height(18.dp))
 
                 // ── County dropdown ───────────────────────────────────────────
-                // Uses the real CountyMapping list so users pick a valid county
                 FieldLabel("County")
                 Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
                         value         = state.county,
-                        onValueChange = { /* read-only — changed via dropdown */ },
+                        onValueChange = { /* read-only */ },
                         placeholder   = { Text("Select your county", color = FieldLine) },
                         leadingIcon   = {
                             Icon(Icons.Filled.LocationOn, null, tint = GreenMid)
@@ -291,12 +280,25 @@ fun SignupScreen(
                     modifier   = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
+                // ── Error Message ──────────────────────────────────────────────
+                if (message.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text  = message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
 
                 // ── Primary CTA ───────────────────────────────────────────────
                 Button(
+                    enabled = !loading,
                     onClick = {
-                        if (viewModel.validateSignup()) onSignupSuccess()
+                        viewModel.signUp(
+                            onSuccess = onSignupSuccess
+                        )
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -307,11 +309,19 @@ fun SignupScreen(
                         contentColor   = Color(0xFF1A1A1A)
                     )
                 ) {
-                    Text(
-                        text       = "Create account",
-                        fontWeight = FontWeight.Bold,
-                        fontSize   = 16.sp
-                    )
+                    if (loading) {
+                        CircularProgressIndicator(
+                            modifier    = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color       = Color.Black
+                        )
+                    } else {
+                        Text(
+                            text       = "Create account",
+                            fontWeight = FontWeight.Bold,
+                            fontSize   = 16.sp
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -347,7 +357,7 @@ fun SignupScreen(
     }
 }
 
-// ── Step indicator (visual polish only — no logic) ────────────────────────────
+// ── Step indicator ───────────────────────────────────────────────────────────
 
 @Composable
 private fun StepIndicator(currentStep: Int, totalSteps: Int) {

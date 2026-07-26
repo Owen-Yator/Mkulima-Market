@@ -1,17 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // LoginScreen.kt
 // Location: com/mkulimamarket/app/auth/presentation/LoginScreen.kt
-//
-// Design approach:
-//   - Full-height green hero panel at the top (40% of screen) with the brand
-//     mark and a Swahili tagline — grounds the screen in its agricultural context
-//   - White content panel slides up from below — clean, airy, no clutter
-//   - Gold accent on the primary action button only (spend boldness in one place)
-//   - Fields use a custom bottom-border style instead of the default outlined box
-//     — lighter, more modern, avoids the "generic Material form" feel
-//   - Signature element: diagonal wheat-stalk accent strip between hero + form
-//
-// ALL original callbacks and ViewModel calls are untouched.
 // ─────────────────────────────────────────────────────────────────────────────
 
 package com.mkulimamarket.app.auth.presentation
@@ -65,6 +54,9 @@ fun LoginScreen(
     viewModel: AuthViewModel = viewModel()
 ) {
     val state        = viewModel.uiState.value
+    val loading by     viewModel.loading.collectAsState()
+    val message by     viewModel.message.collectAsState()
+
     val focusManager = LocalFocusManager.current
     var showPassword by remember { mutableStateOf(false) }
 
@@ -113,7 +105,6 @@ fun LoginScreen(
             }
 
             // ── Signature accent strip ────────────────────────────────────────
-            // Gold divider with a subtle angled clip — the one decorative risk
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -218,13 +209,26 @@ fun LoginScreen(
                         modifier   = Modifier.fillMaxWidth()
                     )
 
+                    // Error Message
+                    if (message.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text  = message,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+
                     Spacer(modifier = Modifier.height(32.dp))
 
                     // Primary action
                     Button(
                         onClick = {
-                            if (viewModel.validateLogin()) onLoginSuccess()
+                            viewModel.login(
+                                onSuccess = onLoginSuccess
+                            )
                         },
+                        enabled = !loading,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
@@ -234,11 +238,19 @@ fun LoginScreen(
                             contentColor   = Color(0xFF1A1A1A)
                         )
                     ) {
-                        Text(
-                            text       = "Sign in",
-                            fontWeight = FontWeight.Bold,
-                            fontSize   = 16.sp
-                        )
+                        if (loading) {
+                            CircularProgressIndicator(
+                                modifier    = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color       = Color.Black
+                            )
+                        } else {
+                            Text(
+                                text       = "Sign in",
+                                fontWeight = FontWeight.Bold,
+                                fontSize   = 16.sp
+                            )
+                        }
                     }
                 }
 
@@ -253,7 +265,7 @@ fun LoginScreen(
                         style = MaterialTheme.typography.bodyMedium.copy(color = TextMuted)
                     )
                     TextButton(
-                        onClick      = onGoToSignup,
+                        onClick        = onGoToSignup,
                         contentPadding = PaddingValues(0.dp)
                     ) {
                         Text(
