@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mkulimamarket.app.data.model.RawPriceEntry
 import com.mkulimamarket.app.ui.viewmodel.CountyMarketViewModel
 
 private val GreenDeep = Color(0xFF1B5E20)
@@ -244,9 +245,7 @@ fun CountyMarketScreen(
                     items(prices) { item ->
 
                         CountyPriceCard(
-                            market = item.market,
-                            commodity = item.commodity,
-                            price = item.displayPrice
+                            entry = item
                         )
                     }
                 }
@@ -254,12 +253,12 @@ fun CountyMarketScreen(
         }
     }
 }
+
 @Composable
 private fun CountyPriceCard(
-    market: String,
-    commodity: String,
-    price: String
+    entry: RawPriceEntry
 ) {
+    val hasLocalEquivalent = entry.displayLocalPrice != null
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -285,7 +284,7 @@ private fun CountyPriceCard(
             ) {
 
                 Text(
-                    text = commodity,
+                    text = entry.commodity,
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = GreenDeep,
                         fontWeight = FontWeight.Bold
@@ -295,12 +294,25 @@ private fun CountyPriceCard(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "Market: $market",
+                    text = "Market: ${entry.market}",
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = Color.Gray
                     )
                 )
+
+                if (hasLocalEquivalent) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = entry.displayLocalPrice!!,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = GreenPrimary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+                }
             }
+
+            Spacer(modifier = Modifier.width(8.dp))
 
             Surface(
                 shape = RoundedCornerShape(8.dp),
@@ -308,7 +320,7 @@ private fun CountyPriceCard(
             ) {
 
                 Text(
-                    text = price.replace("KES", "KSh"),
+                    text = entry.displayPrice,
                     style = MaterialTheme.typography.labelLarge.copy(
                         color = GreenPrimary,
                         fontWeight = FontWeight.Bold

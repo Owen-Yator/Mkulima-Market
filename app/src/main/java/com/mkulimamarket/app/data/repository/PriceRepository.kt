@@ -8,6 +8,7 @@ import com.mkulimamarket.app.data.cache.RefreshManager
 import com.mkulimamarket.app.data.model.RawPriceEntry
 import com.mkulimamarket.app.data.remote.HdxPriceParser
 import com.mkulimamarket.app.data.remote.WfpPriceService
+import com.mkulimamarket.app.data.util.CommodityUnitConverter
 import com.mkulimamarket.app.data.util.CountyMapping
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -231,40 +232,48 @@ class PriceRepository(
         return latest to market
     }
 
-    fun getNationalPrices(): List<NationalPrice> {
+    // --- In PriceRepository.kt, replace getNationalPrices() with this ---
 
+    fun getNationalPrices(): List<NationalPrice> {
         return _prices.value
             .groupBy { it.commodity }
             .map { (_, entries) ->
+                val latest = entries.maxByOrNull { it.date }!!
+                val sameDay = entries.filter { it.date == latest.date }
 
-                val latest =
-                    entries.maxByOrNull { it.date }!!
+                // Normalize EVERY row through the single shared parser — this is
+                // the only place unit math should happen. No more inline
+                // "if unit == 90 KG / 50 KG / 25 KG" copy that silently missed
+                // 64 KG, 126 KG, 13 KG, 200 G, 500 ML, L and Unit.
+                val normalizedEntries = sameDay.map { entry ->
+                    CommodityUnitConverter.normalizeRawEntry(entry.price, entry.unit)
+                }
 
-                val sameDay =
-                    entries.filter {
-                        it.date == latest.date
-                    }
+                // Defensive: if a commodity's rows somehow normalize to more than
+                // one base measure (shouldn't happen for a well-formed commodity,
+                // but the source data has already surprised us once), average
+                // only the dominant group so we never blend KG prices with L or
+                // per-unit prices into one meaningless number.
+                val dominantGroup = normalizedEntries
+                    .groupBy { it.baseUnit }
+                    .maxByOrNull { it.value.size }!!
+                    .value
 
-                val avg =
-                    sameDay
-                        .map { it.price }
-                        .average()
+                val baseUnit = dominantGroup.first().baseUnit
+                val normalizedAvg = dominantGroup.map { it.pricePerBaseUnit }.average()
 
                 NationalPrice(
                     commodity = latest.commodity,
                     category = latest.category,
-                    unit = latest.unit,
-                    priceKes = avg,
+                    unit = baseUnit.label, // "KG", "L", or "Unit" — whichever this commodity actually is
+                    priceKes = normalizedAvg,
                     latestDate = latest.date,
-                    marketCount = sameDay
-                        .map { it.market }
-                        .distinct()
-                        .size
+                    marketCount = sameDay.map { it.market }.distinct().size
                 )
-
             }
             .sortedBy { it.commodity }
     }
+
 
     fun getCounties(): List<String> =
         CountyMapping.ALL_47_COUNTIES

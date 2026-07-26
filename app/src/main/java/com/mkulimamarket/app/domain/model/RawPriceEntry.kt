@@ -1,5 +1,7 @@
 package com.mkulimamarket.app.data.model
 
+import com.mkulimamarket.app.data.util.CommodityUnitConverter
+
 data class RawPriceEntry(
     val date: String,
     val county: String,
@@ -10,7 +12,17 @@ data class RawPriceEntry(
     val priceType: String,
     val price: Double
 ) {
+    private val priceDetails: CommodityUnitConverter.NormalizedPriceResult
+        get() = CommodityUnitConverter.processPrice(
+            commodity = commodity,
+            category = category,
+            rawPrice = price,
+            rawUnit = unit
+        )
 
     val displayPrice: String
-        get() = "KES %.2f/%s".format(price, unit)
+        get() = priceDetails.mainDisplayPrice
+
+    val displayLocalPrice: String?
+        get() = priceDetails.secondaryDisplayPrice
 }

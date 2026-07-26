@@ -122,8 +122,6 @@ fun NationalPricesScreen(
             }
         }
 
-
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -327,8 +325,7 @@ private fun NationalPriceCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement =
-                Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
 
@@ -347,12 +344,23 @@ private fun NationalPriceCard(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text =
-                        "${price.marketCount} markets • ${price.latestDate}",
+                    text = "${price.marketCount} markets • ${price.latestDate}",
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = Color.Gray
                     )
                 )
+
+                // Render local unit equivalent if available (e.g. ≈ KSh 5,580 per 90 kg bag)
+                price.displayLocalPrice?.let { localDisplay ->
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = localDisplay,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = GreenPrimary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(8.dp))
