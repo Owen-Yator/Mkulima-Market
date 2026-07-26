@@ -12,9 +12,8 @@ import com.mkulimamarket.app.data.util.CountyMapping
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private const val TAG = "PriceRepository"
 
@@ -27,9 +26,25 @@ class PriceRepository(
 
     private val _prices = MutableStateFlow<List<RawPriceEntry>>(emptyList())
 
-    val prices: StateFlow<List<RawPriceEntry>> = _prices.asStateFlow()
+    val prices: StateFlow<List<RawPriceEntry>> =
+        _prices.asStateFlow()
 
-    suspend fun loadPrices() {
+    private val refreshMutex = Mutex()
+
+    /**
+     * Initializes repository data.
+     * Loads local data immediately, then refreshes from network if needed.
+     */
+    suspend fun initialize() {
+        loadLocalPrices()
+        refreshFromNetwork()
+    }
+
+    /**
+     * Loads data from memory, cache or bundled snapshot.
+     * Returns almost immediately.
+     */
+    suspend fun loadLocalPrices() {
 
         if (_prices.value.isNotEmpty()) {
             Log.d(TAG, "Using in-memory cache (${_prices.value.size})")
@@ -38,73 +53,151 @@ class PriceRepository(
 
         try {
 
-            // 1. CACHE
+            // -------------------------------------------------------------
+            // CACHE
+            // -------------------------------------------------------------
             if (cacheManager.hasCache()) {
 
                 val cachedCsv = cacheManager.readCache()
 
                 if (!cachedCsv.isNullOrBlank()) {
 
-                    val parsed = HdxPriceParser.parse(cachedCsv)
+                    updatePricesFromCsv(cachedCsv)
 
-                    _prices.value = parsed.filter {
-                        !it.category.contains("non-food", true) &&
-                                !it.category.contains("fuel", true)
-                    }
+                    Log.d(
+                        TAG,
+                        "Loaded ${_prices.value.size} prices from cache"
+                    )
 
-                    Log.d(TAG, "Loaded from cache")
                     return
                 }
             }
 
-            // 2. SNAPSHOT
-            val csv = context.assets
+            // -------------------------------------------------------------
+            // SNAPSHOT
+            // -------------------------------------------------------------
+            val snapshotCsv = context.assets
                 .open("wfp_food_prices_ken_snapshot.csv")
                 .bufferedReader()
                 .use { it.readText() }
 
-            val parsed = HdxPriceParser.parse(csv)
+            updatePricesFromCsv(snapshotCsv)
 
-            _prices.value = parsed.filter {
-                !it.category.contains("non-food", true) &&
-                        !it.category.contains("fuel", true)
-            }
+            cacheManager.saveCache(snapshotCsv)
 
-            cacheManager.saveCache(csv)
-
-            // 3. NETWORK
-            if (refreshManager.shouldRefresh()) {
-
-                try {
-                    val response = api.downloadPrices()
-
-                    if (response.isSuccessful) {
-
-                        val networkCsv = response.body().orEmpty()
-
-                        if (networkCsv.isNotBlank()) {
-
-                            val netParsed = HdxPriceParser.parse(networkCsv)
-
-                            _prices.value = netParsed.filter {
-                                !it.category.contains("non-food", true) &&
-                                        !it.category.contains("fuel", true)
-                            }
-
-                            cacheManager.saveCache(networkCsv)
-                            refreshManager.updateLastRefresh()
-
-                            Log.d(TAG, "Network refresh success")
-                        }
-                    }
-
-                } catch (e: Exception) {
-                    Log.e(TAG, "Network update failed", e)
-                }
-            }
+            Log.d(
+                TAG,
+                "Loaded ${_prices.value.size} prices from bundled snapshot"
+            )
 
         } catch (e: Exception) {
-            Log.e(TAG, "loadPrices failed", e)
+
+            Log.e(TAG, "loadLocalPrices failed", e)
+
+        }
+    }
+
+    /**
+     * Downloads the newest dataset without blocking the UI.
+     * Only one refresh can occur at a time.
+     */
+    suspend fun refreshFromNetwork() {
+
+        if (!refreshManager.shouldRefresh()) {
+            Log.d(TAG, "Refresh not required yet.")
+            return
+        }
+
+        refreshMutex.withLock {
+
+            // Another coroutine may already have refreshed while we waited.
+            if (!refreshManager.shouldRefresh()) {
+                Log.d(TAG, "Refresh already completed.")
+                return
+            }
+
+            try {
+
+                Log.d(TAG, "Attempting network refresh...")
+
+                val response = api.downloadPrices()
+
+                Log.d(TAG, "HTTP Code = ${response.code()}")
+
+                if (!response.isSuccessful) {
+
+                    Log.e(
+                        TAG,
+                        "Network request failed. HTTP ${response.code()}"
+                    )
+                    return
+                }
+
+                val networkCsv = response.body().orEmpty()
+
+                Log.d(
+                    TAG,
+                    "Downloaded ${networkCsv.length} characters"
+                )
+
+                if (networkCsv.isBlank()) {
+
+                    Log.w(TAG, "Downloaded CSV is empty.")
+                    return
+                }
+
+                val parsed = HdxPriceParser.parse(networkCsv)
+
+                val filtered = parsed.filter {
+
+                    !it.category.contains("non-food", true) &&
+                            !it.category.contains("fuel", true)
+                }
+
+                if (filtered.isEmpty()) {
+
+                    Log.w(TAG, "Network CSV contained no usable records.")
+                    return
+                }
+
+                _prices.value = filtered
+
+                cacheManager.saveCache(networkCsv)
+
+                refreshManager.updateLastRefresh()
+
+                Log.d(
+                    TAG,
+                    "Repository updated with ${filtered.size} records."
+                )
+
+            } catch (e: Exception) {
+
+                Log.e(TAG, "Network refresh failed", e)
+            }
+        }
+    }
+
+    /**
+     * Parses CSV and updates the repository.
+     */
+    private fun updatePricesFromCsv(csv: String) {
+
+        _prices.value = HdxPriceParser
+            .parse(csv)
+            .filterFoodPrices()
+    }
+
+    /**
+     * Removes non-food and fuel commodities.
+     */
+    private fun List<RawPriceEntry>.filterFoodPrices(): List<RawPriceEntry> {
+
+        return filter {
+
+            !it.category.contains("non-food", true) &&
+                    !it.category.contains("fuel", true)
+
         }
     }
 
@@ -121,8 +214,10 @@ class PriceRepository(
         val search = normalize(market)
 
         val matches = _prices.value.filter {
+
             normalize(it.market).contains(search) ||
                     normalize(it.county).contains(search)
+
         }
 
         val latest = matches
@@ -142,11 +237,18 @@ class PriceRepository(
             .groupBy { it.commodity }
             .map { (_, entries) ->
 
-                val latest = entries.maxByOrNull { it.date }!!
+                val latest =
+                    entries.maxByOrNull { it.date }!!
 
-                val sameDay = entries.filter { it.date == latest.date }
+                val sameDay =
+                    entries.filter {
+                        it.date == latest.date
+                    }
 
-                val avg = sameDay.map { it.price }.average()
+                val avg =
+                    sameDay
+                        .map { it.price }
+                        .average()
 
                 NationalPrice(
                     commodity = latest.commodity,
@@ -154,8 +256,12 @@ class PriceRepository(
                     unit = latest.unit,
                     priceKes = avg,
                     latestDate = latest.date,
-                    marketCount = sameDay.map { it.market }.distinct().size
+                    marketCount = sameDay
+                        .map { it.market }
+                        .distinct()
+                        .size
                 )
+
             }
             .sortedBy { it.commodity }
     }
