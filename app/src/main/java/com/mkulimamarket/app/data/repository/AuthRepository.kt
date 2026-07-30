@@ -67,9 +67,11 @@ class AuthRepository {
         }
     }
 
-    suspend fun logout() {
+    suspend fun signOut() {
         auth.signOut()
     }
+
+    fun getCurrentUser() = auth.currentUserOrNull()
 
     fun isLoggedIn(): Boolean =
         auth.currentSessionOrNull() != null

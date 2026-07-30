@@ -9,6 +9,7 @@ import com.mkulimamarket.app.auth.presentation.SignupScreen
 import com.mkulimamarket.app.ui.screens.HomeScreen
 import com.mkulimamarket.app.ui.screens.NationalPricesScreen
 import com.mkulimamarket.app.ui.screens.CountyMarketScreen
+import com.mkulimamarket.app.ui.screens.ProfileScreen
 import com.mkulimamarket.app.ui.screens.SplashScreen
 import com.mkulimamarket.app.ui.screens.TrendScreen
 
@@ -20,6 +21,7 @@ object Routes {
     const val NationalPrices = "national_prices"
     const val CountyMarket = "county_market"
     const val PriceTrends = "price_trends"
+    const val Profile = "profile"
 }
 
 @Composable
@@ -82,6 +84,9 @@ fun NavGraph(navController: NavHostController) {
                 },
                 onPriceTrendsClick = {
                     navController.navigate(Routes.PriceTrends)
+                },
+                onProfileClick = {
+                    navController.navigate(Routes.Profile)
                 }
             )
         }
@@ -96,6 +101,18 @@ fun NavGraph(navController: NavHostController) {
 
         composable(Routes.PriceTrends) {
             TrendScreen()
+        }
+
+        composable(Routes.Profile) {
+            ProfileScreen(
+                onSignOut = {
+                    navController.navigate(Routes.Login) {
+                        popUpTo(Routes.Home) {
+                            inclusive = true
+                        }
+                    }
+                }
+            )
         }
     }
 }
