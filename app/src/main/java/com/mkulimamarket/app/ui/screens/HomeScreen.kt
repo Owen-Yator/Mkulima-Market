@@ -32,8 +32,6 @@ import androidx.compose.ui.unit.sp
 
 /**
  * Color tokens for Mkulima Market.
- * Worth moving into ui/theme/Color.kt once you're ready to share them
- * across the rest of the app.
  */
 private object MkulimaPalette {
     val CanopyGreen = Color(0xFF1B4332)        // primary — deep, grounded green
@@ -51,7 +49,8 @@ private object MkulimaPalette {
 fun HomeScreen(
     onNationalPricesClick: () -> Unit,
     onCountyMarketsClick: () -> Unit,
-    onPriceTrendsClick: () -> Unit
+    onPriceTrendsClick: () -> Unit,
+    onProfileClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -129,19 +128,13 @@ fun HomeScreen(
             description = "Manage account settings",
             icon = Icons.Filled.Person,
             accentColor = MkulimaPalette.SkyDust,
-            onClick = { }
+            onClick = onProfileClick
         )
 
         Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
-/**
- * The hero: leads with today's most characteristic fact about this app's
- * world — a live price movement — rather than a generic greeting banner.
- * Tapping it opens the same destination as "National Prices" so it does
- * real work, not just decoration.
- */
 @Composable
 private fun MarketHeroCard(onClick: () -> Unit) {
     Surface(
@@ -216,10 +209,6 @@ private fun MarketHeroCard(onClick: () -> Unit) {
     }
 }
 
-/**
- * The signature element — a small scrolling strip of live-feeling prices.
- * Replace the hardcoded list with real data from your price repository.
- */
 @Composable
 private fun PriceTicker() {
     val items = listOf(
